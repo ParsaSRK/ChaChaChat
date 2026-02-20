@@ -1,12 +1,20 @@
 #pragma once
 
-#include <cinttypes>
+#include <cstddef>
 #include <expected>
+#include <memory>
 #include <span>
 #include <string_view>
 
 enum class SocketErrorType {
-    Timeout,
+    TimedOut,
+    WouldBlock,
+    ConnectionReset,
+    Interrupted,
+    Unknown,
+    ResolutionFailed,
+    InvalidSocket,
+    ConnectionClosed,
 };
 
 struct SocketError {
@@ -16,15 +24,26 @@ struct SocketError {
 
 class Socket {
 public:
-    Socket();
-    ~Socket();
+    [[nodiscard]] static std::expected<Socket, SocketError> connect(
+        std::string_view host, uint16_t port);
+    [[nodiscard]] std::expected<void, SocketError> send(
+        std::span<const std::byte> data);
+    [[nodiscard]] std::expected<size_t, SocketError> recv(
+        std::span<std::byte> data);
 
-    std::expected<void, SocketError> connect(std::string_view host,
-                                             uint16_t port);
-    std::expected<size_t, SocketError> send(std::span<const std::byte> data);
-    std::expected<size_t, SocketError> recv(std::span<std::byte> data);
+    void close() noexcept;
+
+    Socket(Socket&&) noexcept;
+    Socket& operator=(Socket&&) noexcept;
+
+    ~Socket() noexcept;
 
 private:
-    struct impl;
-    impl* impl_;
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+
+    explicit Socket(std::unique_ptr<Impl> impl);
+
+    Socket(const Socket&) = delete;
+    Socket& operator=(const Socket&) = delete;
 };
